@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Секція по самообороні - Оцінки по дням</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .week-navigation {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .week-navigation button {
+            padding: 10px 15px;
+            margin: 0 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .week-navigation span {
+            font-size: 18px;
+            margin: 0 10px;
+        }
+
+        .add-form {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .add-form input {
+            padding: 5px;
+            margin-right: 10px;
+        }
+
+        .add-form button {
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            margin: 20px 0;
+            border-collapse: collapse;
+            background-color: #fff;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .edit-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .delete-btn {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>Оцінки учасників по днях</h1>
+
+    <div class="week-navigation">
+        <button onclick="prevWeek()">Попередній тиждень</button>
+        <span id="currentWeek"></span>
+        <button onclick="nextWeek()">Наступний тиждень</button>
+    </div>
+
+    <div class="add-form">
+        <input type="text" id="newName" placeholder="Ім'я учасника" />
+        <button onclick="addParticipant()">Додати учасника</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Ім'я</th>
+                <th>Понеділок</th>
+                <th>Вівторок</th>
+                <th>Середа</th>
+                <th>Четвер</th>
+                <th>П'ятниця</th>
+                <th>Дії</th>
+            </tr>
+        </thead>
+        <tbody id="participantTable">
+            <!-- Дані по днях будуть додаватися тут -->
+        </tbody>
+    </table>
+
+    <script>
+        let participants = JSON.parse(localStorage.getItem('participants')) || [];
+        let currentWeekOffset = 0;
+
+        function getFormattedDate(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function getCurrentWeekDays() {
+            const today = new Date();
+            today.setDate(today.getDate() + currentWeekOffset * 7);
+            const weekStart = new Date(today);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Понеділок як перший день тижня
+            const days = [];
+            for (let i = 0; i < 5; i++) { // Понеділок - П'ятниця
+                const date = new Date(weekStart);
+                date.setDate(weekStart.getDate() + i);
+                days.push({
+                    date: getFormattedDate(date),
+                    name: date.toLocaleDateString('uk-UA', { weekday: 'long' })
+                });
+            }
+            return days;
+        }
+
+        function renderWeek() {
+            const days = getCurrentWeekDays();
+            const table = document.getElementById('participantTable');
+            const currentWeek = days[0].date + ' - ' + days[4].date;
+            document.getElementById('currentWeek').textContent = currentWeek;
+            table.innerHTML = '';
+
+            participants.forEach((participant, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${participant.name}</td>` + days.map(day => {
+                    const scoreKey = `${participant.name}-${day.date}`;
+                    const score = localStorage.getItem(scoreKey) || '';
+                    return `<td id="${scoreKey}">${score}</td>`;
+                }).join('') + `
+                    <td>
+                        <button class="edit-btn" onclick="editScores(${index})">Редагувати</button>
+                        <button class="delete-btn" onclick="deleteParticipant(${index})">Видалити</button>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+        }
+
+        function editScores(participantIndex) {
+            const participant = participants[participantIndex];
+            const days = getCurrentWeekDays();
+
+            days.forEach(day => {
+                const scoreKey = `${participant.name}-${day.date}`;
+                const currentScore = localStorage.getItem(scoreKey) || '';
+                const newScore = prompt(`Введіть нову оцінку для ${participant.name} на ${day.name}:`, currentScore);
+                if (newScore !== null && !isNaN(newScore)) {
+                    localStorage.setItem(scoreKey, newScore);
+                }
+            });
+            renderWeek();
+        }
+
+        function addParticipant() {
+            const name = document.getElementById('newName').value;
+            if (name) {
+                participants.push({ name });
+                localStorage.setItem('participants', JSON.stringify(participants));
+                document.getElementById('newName').value = '';
+                renderWeek();
+            } else {
+                alert('Введіть ім\'я учасника.');
+            }
+        }
+
+        function deleteParticipant(index) {
+            if (confirm('Ви дійсно хочете видалити цього учасника?')) {
+                const participant = participants[index];
+                const days = getCurrentWeekDays();
+                participants.splice(index, 1);
+                days.forEach(day => {
+                    const scoreKey = `${participant.name}-${day.date}`;
+                    localStorage.removeItem(scoreKey);
+                });
+                localStorage.setItem('participants', JSON.stringify(participants));
+                renderWeek();
+            }
+        }
+
+        function prevWeek() {
+            currentWeekOffset--;
+            renderWeek();
+        }
+
+        function nextWeek() {
+            currentWeekOffset++;
+            renderWeek();
+        }
+
+        // Завантажити дані під час відкриття сторінки
+        renderWeek();
+    </script>
+</body>
+</html>
